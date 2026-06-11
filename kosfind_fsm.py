@@ -1,5 +1,4 @@
 import streamlit as st
-from kosfind_fsm import KosFindFSM, State
 from data import KOS_DATA
 
 # --- Page config -----------------------------------------------------------------
