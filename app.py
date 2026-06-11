@@ -88,175 +88,113 @@ html, body, [class*="css"] {
 }
 
 /* --- Chatbot Page ------------------------------------------------ */
-.chat-container {
-    max-width: 700px;
-    margin: 0 auto;
+.chat-container{
+    max-width:850px;
+    margin:auto;
 }
 
-.chat-header {
-    text-align: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
-}
-.chat-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin: 0;
-}
-.chat-header p {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin: 0.25rem 0 0;
+.chat-header{
+    text-align:center;
+    margin-bottom:12px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--border);
 }
 
-.state-chip {
-    display: inline-block;
-    background: #E8F5E9;
-    color: var(--secondary);
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 3px 12px;
-    border-radius: 20px;
-    margin-bottom: 0.75rem;
+.chat-header h1{
+    font-size:2rem;
+    margin:0;
+    color:var(--primary);
 }
 
-.chat-messages {
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    min-height: 350px;
-    max-height: 400px;
-    overflow-y: auto;
+.chat-header p{
+    margin-top:4px;
+    font-size:.9rem;
+    color:var(--muted);
 }
 
-.message-user {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 0.75rem;
-}
-.message-user-content {
-    background: var(--secondary);
-    color: white;
-    padding: 8px 14px;
-    border-radius: 18px 18px 4px 18px;
-    max-width: 75%;
-    font-size: 0.85rem;
-    line-height: 1.4;
-}
-.message-user-label {
-    text-align: right;
-    font-size: 0.6rem;
-    color: var(--muted);
-    margin-bottom: 2px;
+.state-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:#E8F5E9;
+    color:var(--secondary);
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:.75rem;
+    font-weight:600;
+    margin-bottom:12px;
 }
 
-.message-bot {
-    display: flex;
-    justify-content: flex-start;
-    margin-bottom: 0.75rem;
-}
-.message-bot-content {
-    background: #F1F5F9;
-    color: var(--text);
-    padding: 8px 14px;
-    border-radius: 18px 18px 18px 4px;
-    max-width: 75%;
-    font-size: 0.85rem;
-    line-height: 1.4;
-    white-space: pre-wrap;
-}
-.message-bot-label {
-    font-size: 0.6rem;
-    color: var(--muted);
-    margin-bottom: 2px;
+
+
+.message-user,
+.message-bot{
+    margin-bottom:14px;
 }
 
-.session-separator {
-    text-align: center;
-    margin: 0.75rem 0;
-    position: relative;
-}
-.session-separator::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: #E5E7EB;
-}
-.session-separator span {
-    background: var(--white);
-    padding: 0 10px;
-    position: relative;
-    color: var(--muted);
-    font-size: 0.65rem;
+.message-user{
+    text-align:right;
+    margin-bottom:14px;
 }
 
-.quick-panel {
-    background: #F8F9FA;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 0.75rem;
-    margin-top: 0.5rem;
-}
-.quick-title {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 0.5rem;
-}
-.quick-btn-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-.quick-btn-row button {
-    flex: 1;
-    background: white !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 20px !important;
-    padding: 6px 8px !important;
-    font-size: 0.7rem !important;
-    font-weight: 500 !important;
-    color: var(--secondary) !important;
-    white-space: normal !important;
-    line-height: 1.3 !important;
-}
-.quick-btn-row button:hover {
-    background: var(--secondary) !important;
-    border-color: var(--secondary) !important;
-    color: white !important;
-}
-.ganti-btn {
-    text-align: center;
-    margin-top: 6px;
-}
-.ganti-btn button {
-    background: transparent !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 20px !important;
-    padding: 4px 16px !important;
-    font-size: 0.7rem !important;
-    color: var(--secondary) !important;
+.message-user-label{
+    font-size:.7rem;
+    color:var(--muted);
+    margin-bottom:3px;
 }
 
-.chat-input-area {
-    margin-top: 0.75rem;
+.message-user-content{
+    display:inline-block;
+
+    background:var(--secondary);
+    color:white;
+
+    padding:10px 16px;
+    border-radius:18px 18px 4px 18px;
+
+    max-width:70%;
+    text-align:left;
+
+    white-space:normal;
+    overflow-wrap:break-word;
 }
-.stChatInput textarea {
-    border-radius: 24px !important;
-    border: 1px solid var(--border) !important;
-    font-size: 0.85rem !important;
+
+.message-bot-content{
+    background:#F1F5F9;
+    color:var(--text);
+    padding:10px 16px;
+    border-radius:18px 18px 18px 4px;
+    max-width:70%;
+    font-size:.85rem;
 }
-.chat-footer {
-    text-align: center;
-    font-size: 0.6rem;
-    color: var(--muted);
-    margin-top: 0.5rem;
+
+.message-user-label,
+.message-bot-label{
+    font-size:.7rem;
+    margin-bottom:3px;
+    color:var(--muted);
+}
+
+.quick-panel{
+    margin-top:12px;
+    padding:12px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:14px;
+}
+
+.quick-title{
+    font-size:.75rem;
+    font-weight:700;
+    color:var(--muted);
+    margin-bottom:10px;
+}
+
+.chat-footer{
+    margin-top:8px;
+    text-align:center;
+    font-size:.7rem;
+    color:var(--muted);
 }
 
 .new-session-container {
@@ -383,6 +321,35 @@ html, body, [class*="css"] {
     padding: 2px 6px;
     border-radius: 20px;
 }
+            
+.quick-action-card{
+    background:#FFFFFF;
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    margin-top:12px;
+}
+
+.quick-action-title{
+    padding:16px;
+    font-size:0.9rem;
+    font-weight:600;
+    color:var(--text);
+    border-bottom:1px solid var(--border);
+}
+
+.quick-action-item{
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    color:#2563EB;
+    font-size:0.9rem;
+}
+
+.quick-action-footer{
+    text-align:center;
+    padding:12px;
+}
+
 .status-available { color: #16A34A; font-size: 0.7rem; }
 .status-full { color: #DC2626; font-size: 0.7rem; }
 
@@ -520,19 +487,20 @@ def page_beranda():
 def page_chatbot():
     st.markdown("""
     <div class="chat-header">
-        <h1>Chatbot Konsultasi Kos</h1>
-        <p>Tanyakan informasi kos yang Anda butuhkan secara langsung</p>
+        <h1>KosFind Semarang</h1>
+        <p>Temukan kos terbaik di Semarang melalui percakapan interaktif</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-
     fsm_state = st.session_state.fsm.state.name.replace("_", " ").title()
-    st.markdown(f'<div class="state-chip">Status: {fsm_state}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="state-chip">Status: {fsm_state}</div>',
+        unsafe_allow_html=True
+    )
 
-    # Chat Messages
-    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    # Tampilkan riwayat chat tanpa kotak besar
     for msg in st.session_state.chat_history:
+
         if msg["role"] == "user":
             st.markdown(f"""
             <div class="message-user">
@@ -542,70 +510,106 @@ def page_chatbot():
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
         elif msg["role"] == "bot":
             st.markdown(f"""
             <div class="message-bot">
                 <div>
-                    <div class="message-bot-label">KosFind</div>
+                    <div class="message-bot-label">KosFind Assistant</div>
                     <div class="message-bot-content">{msg["content"]}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
         elif msg["role"] == "system":
-            st.markdown(f'<div class="session-separator"><span>{msg["content"]}</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="session-separator"><span>{msg["content"]}</span></div>',
+                unsafe_allow_html=True
+            )
 
-    # Quick Buttons
-    if st.session_state.show_quick_buttons and st.session_state.fsm.state.name != "EXIT":
-        st.markdown('<div class="quick-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="quick-title">PERTANYAAN CEPAT</div>', unsafe_allow_html=True)
-        
+# Quick Action
+    if (
+        st.session_state.show_quick_buttons
+        and st.session_state.fsm.state.name != "EXIT"
+    ):
+
+        st.markdown("""
+        <div class="quick-action-card">
+            <div class="quick-action-title">
+                Silakan pilih topik yang ingin ditanyakan:
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
         start_idx = st.session_state.quick_page * 3
-        display_cmds = QUICK_COMMANDS[start_idx:start_idx + 3]
-        
-        # Baris 1
-        cols = st.columns(3)
-        for i, cmd in enumerate(display_cmds):
-            with cols[i]:
-                if st.button(cmd, key=f"quick_{start_idx + i}", use_container_width=True):
-                    st.session_state.chat_history.append({"role": "user", "content": cmd})
-                    st.session_state.fsm.step(cmd)
-                    st.session_state.chat_history.append({"role": "bot", "content": st.session_state.fsm.get_response()})
-                    st.session_state.show_quick_buttons = False
-                    st.rerun()
-        
-        # Tombol Ganti
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            if st.button("Ganti Pertanyaan", key="ganti_btn", use_container_width=True):
-                st.session_state.quick_page = 1 - st.session_state.quick_page
-                st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+        display_cmds = QUICK_COMMANDS[start_idx:start_idx + 4]
 
-    # New Session Button
+        for i, cmd in enumerate(display_cmds):
+
+            if st.button(
+                cmd,
+                key=f"quick_{i}",
+                use_container_width=True
+            ):
+                st.session_state.chat_history.append({
+                    "role": "user",
+                    "content": cmd
+                })
+
+                st.session_state.fsm.step(cmd)
+
+                st.session_state.chat_history.append({
+                    "role": "bot",
+                    "content": st.session_state.fsm.get_response()
+                })
+
+                st.session_state.show_quick_buttons = False
+                st.rerun()
+
+        if st.button(
+            "↻ Ganti Pertanyaan",
+            key="change_question",
+            use_container_width=True
+        ):
+            st.session_state.quick_page = (
+                st.session_state.quick_page + 1
+            ) % 2
+            st.rerun()
+
+
+    # Tombol sesi baru
     if st.session_state.fsm.state.name == "EXIT":
-        st.markdown('<div class="new-session-container">', unsafe_allow_html=True)
-        if st.button("Mulai Sesi Baru", key="new_session_btn", use_container_width=True):
+        if st.button(
+            "Mulai Sesi Baru",
+            key="new_session_btn",
+            use_container_width=True
+        ):
             _start_new_session()
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Chat Input
-    st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
+    # Input chat
     user_input = st.chat_input("Ketik pesan Anda di sini...")
-    if user_input:
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-        st.session_state.fsm.step(user_input)
-        st.session_state.chat_history.append({"role": "bot", "content": st.session_state.fsm.get_response()})
-        if st.session_state.show_quick_buttons:
-            st.session_state.show_quick_buttons = False
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="chat-footer">Contoh: "Cari kos putri di Tembalang budget 800rb" | Ketik "reset" untuk mengakhiri</div>', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    if user_input:
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": user_input
+        })
+
+        st.session_state.fsm.step(user_input)
+
+        st.session_state.chat_history.append({
+            "role": "bot",
+            "content": st.session_state.fsm.get_response()
+        })
+
+        st.session_state.show_quick_buttons = False
+        st.rerun()
+
+    st.markdown(
+        '<div class="chat-footer">Contoh: Cari kos putri di Tembalang budget 800rb</div>',
+        unsafe_allow_html=True
+    )
 
 
 # -------------------------------------------------------------------------------
