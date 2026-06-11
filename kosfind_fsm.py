@@ -1,561 +1,794 @@
-import streamlit as st
+# kosfind_fsm.py — FSM untuk KosFind Semarang (Natural)
+
+from enum import Enum, auto
+import re
+from typing import Dict, List, Optional, Any, Tuple
 from data import KOS_DATA
+from nlp_engine import KosFindNLP
 
-# --- Page config -----------------------------------------------------------------
-st.set_page_config(
-    page_title="KosFind Semarang - Cari Kos Pintar",
-    page_icon="🏢",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
-# --- Global CSS (Tampilan Premium, Rapi & Navigasi Bersih) -----------------------
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+class State(Enum):
+    GREETING = auto()
+    MENU = auto()
+    INPUT_LOKASI = auto()
+    INPUT_BUDGET = auto()
+    INPUT_JENIS = auto()
+    INPUT_FASILITAS = auto()
+    HASIL_PENCARIAN = auto()
+    DETAIL_KOS = auto()
+    BANTUAN = auto()
+    EXIT = auto()
 
-:root {
-    --primary:      #0F2419;
-    --secondary:    #1A5C38;
-    --accent:       #3DB87A;
-    --accent-dim:   #2D8A5B;
-    --light:        #A8DDBE;
-    --bg:           #F8F9FA;
-    --white:        #FFFFFF;
-    --text:         #1E293B;
-    --muted:        #64748B;
-    --border:       #E2E8F0;
-    --card-shadow:  0 4px 20px rgba(15, 36, 25, 0.05);
-}
 
-html, body, [class*="css"] {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    color: var(--text);
-    background: var(--bg);
-}
-.main .block-container {
-    padding-top: 1.5rem;
-    padding-bottom: 2rem;
-    max-width: 1000px;
-}
-
-/* --- Sidebar Styling Eksklusif --- */
-[data-testid="stSidebar"] {
-    background-color: var(--primary) !important;
-    border-right: 1px solid rgba(255,255,255,0.06) !important;
-}
-[data-testid="stSidebar"] * { color: #E2F5E9 !important; }
-[data-testid="stSidebarNavItems"] { display: none; }
-
-.sidebar-brand {
-    padding: 2.5rem 1.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    margin-bottom: 1.5rem;
-}
-.sidebar-brand .brand-mark {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accent) !important;
-    margin-bottom: 0.5rem;
-}
-.sidebar-brand .brand-name {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: #FFFFFF !important;
-    letter-spacing: -1px;
-    line-height: 1;
-}
-.sidebar-brand .brand-city {
-    font-size: 0.8rem;
-    font-weight: 400;
-    color: var(--light) !important;
-    opacity: 0.8;
-    margin-top: 4px;
-}
-
-.sidebar-nav-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: rgba(168,221,190,0.4) !important;
-    padding: 0 1.5rem 0.75rem;
-}
-
-/* Sidebar Custom Buttons */
-[data-testid="stSidebar"] .stButton > button {
-    background: transparent !important;
-    border: none !important;
-    color: rgba(226, 245, 233, 0.7) !important;
-    font-size: 0.9rem !important;
-    font-weight: 500 !important;
-    text-align: left !important;
-    padding: 12px 24px !important;
-    border-radius: 8px !important;
-    margin: 4px 12px !important;
-    width: calc(100% - 24px) !important;
-    transition: all 0.2s ease !important;
-}
-[data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(61,184,122,0.08) !important;
-    color: #FFFFFF !important;
-    padding-left: 28px !important;
-}
-
-/* Active Nav State */
-.nav-active > button {
-    background: rgba(61,184,122,0.15) !important;
-    color: #FFFFFF !important;
-    font-weight: 700 !important;
-    border-left: 4px solid var(--accent) !important;
-    border-radius: 0 8px 8px 0 !important;
-    margin-left: 0 !important;
-    padding-left: 24px !important;
-}
-
-.sidebar-tips {
-    position: absolute;
-    bottom: 2rem;
-    left: 0; right: 0;
-    padding: 0 1.5rem;
-}
-.sidebar-tips-inner {
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding-top: 1.25rem;
-    font-size: 0.75rem;
-    color: rgba(168,221,190,0.6) !important;
-    line-height: 1.6;
-}
-
-/* --- Chatbot Layout & Bubbles --- */
-.chat-wrapper {
-    max-width: 800px;
-    margin: 0 auto;
-}
-.chat-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 1.5rem;
-}
-.state-pill {
-    background: #E6F7ED;
-    border: 1px solid #BCE7CD;
-    color: var(--secondary);
-    font-size: 0.7rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 6px 14px;
-    border-radius: 30px;
-}
-
-.chat-window {
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    min-height: 400px;
-    max-height: 480px;
-    overflow-y: auto;
-    box-shadow: var(--card-shadow);
-}
-
-/* Chat Message Bubbles */
-.msg-user { display: flex; justify-content: flex-end; margin-bottom: 1.25rem; }
-.msg-user-bubble {
-    background: var(--secondary);
-    color: white;
-    padding: 12px 18px;
-    border-radius: 18px 18px 4px 18px;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    max-width: 75%;
-}
-
-.msg-bot { display: flex; justify-content: flex-start; margin-bottom: 1.25rem; }
-.msg-bot-bubble {
-    background: #F1F5F9;
-    color: var(--text);
-    padding: 12px 18px;
-    border-radius: 18px 18px 18px 4px;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    max-width: 75%;
-    white-space: pre-wrap;
-}
-
-/* --- Button Hubungi Pemilik (CTA WA) --- */
-.wa-link-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #25D366;
-    color: white !important;
-    text-decoration: none !important;
-    padding: 10px 20px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
-    transition: all 0.2s ease;
-}
-.wa-link-btn:hover {
-    background-color: #20BA56;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
-}
-
-/* Quick Picks Panel */
-.quick-panel {
-    background: #FFFFFF;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.25rem;
-    margin-top: 1rem;
-    box-shadow: var(--card-shadow);
-}
-
-#MainMenu, footer, header { visibility: hidden; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- Session state init ---------------------------------------------------------
-def init_session():
-    if "page" not in st.session_state:
-        st.session_state.page = "Beranda"
-    if "fsm" not in st.session_state:
-        st.session_state.fsm = KosFindFSM()
-        st.session_state.chat_history = [
-            {"role": "bot", "content": st.session_state.fsm.get_response()}
-        ]
-        st.session_state.quick_page = 0
-        st.session_state.show_quick_buttons = True
-        st.session_state.session_count = 1
-
-init_session()
-
-QUICK_COMMANDS = [
-    "Saya ingin mencari kos berdasarkan lokasi",
-    "Saya ingin mencari kos berdasarkan budget",
-    "Saya ingin mencari kos berdasarkan kategori",
-    "Saya ingin mencari kos berdasarkan fasilitas",
-    "Saya ingin mencari kos berdasarkan kondisi kos",
-    "Saya ingin mencari kos berdasarkan aturan kos",
-]
-
-NAV_ITEMS = ["Beranda", "Chatbot", "Rekomendasi Kos"]
-
-# --- Sidebar (Tampilan Navigasi Rapi) --------------------------------------------
-with st.sidebar:
-    st.markdown("""
-    <div class="sidebar-brand">
-        <div class="brand-mark">AI ASSISTANT SYSTEM</div>
-        <div class="brand-name">KosFind</div>
-        <div class="brand-city">Semarang City</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-nav-label">Menu Navigasi</div>', unsafe_allow_html=True)
-
-    for label in NAV_ITEMS:
-        active = "nav-active" if st.session_state.page == label else ""
-        st.markdown(f'<div class="{active}">', unsafe_allow_html=True)
-        if st.button(label, key=f"nav_{label}", use_container_width=True):
-            st.session_state.page = label
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="sidebar-tips">
-        <div class="sidebar-tips-inner">
-            <b>PANDUAN PINTAR</b><br>
-            • Ketik <b>reset</b> untuk mengulang chat<br>
-            • Ketik <b>bantuan</b> untuk opsi perintah<br>
-            • Klik tombol WA untuk hubungi pemilik
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- Helper functions -----------------------------------------------------------
-def fmt_harga(h):
-    return f"Rp {h:,.0f}".replace(",", ".")
-
-def check_kos_context(bot_response):
-    """
-    Mendeteksi secara cerdas nama kos yang terkandung di dalam respon bot.
-    """
-    bot_response_lower = str(bot_response).lower()
-    for kos in KOS_DATA:
-        if kos["nama"].lower() in bot_response_lower:
-            return kos
-    return None
-
-def get_state_string_safe():
-    """
-    SOLUSI UTAMA ERROR: Mengubah objek Enum State menjadi representasi string teks 
-    secara aman tanpa memanggil properti .name yang memicu AttributeError.
-    """
-    fsm_obj = st.session_state.fsm
-    if hasattr(fsm_obj, 'state'):
-        # Mengonversi objek State.GREETING menjadi string "State.GREETING" lalu mengambil ujungnya
-        state_str = str(fsm_obj.state)
-        if "." in state_str:
-            return state_str.split(".")[-1]
-        return state_str
-    return "UNKNOWN"
-
-def _start_new_session():
-    st.session_state.chat_history.append({
-        "role": "system",
-        "content": f"Sesi #{st.session_state.session_count + 1}"
-    })
-    st.session_state.fsm = KosFindFSM()
-    st.session_state.chat_history.append({"role": "bot", "content": st.session_state.fsm.get_response()})
-    st.session_state.quick_page = 0
-    st.session_state.show_quick_buttons = True
-    st.session_state.session_count += 1
-
-# --- PAGE: BERANDA ---------------------------------------------------------------
-def page_beranda():
-    st.markdown("""
-    <div class="beranda-hero" style="background: var(--primary); border-radius: 16px; padding: 3rem 2.5rem; margin-bottom: 2rem; color: white;">
-        <div class="hero-tag" style="font-family:'JetBrains Mono'; color:var(--accent); font-size:0.7rem; letter-spacing:0.15em; margin-bottom:1rem;">INTELLIGENT KOS FINDER</div>
-        <h1 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; letter-spacing: -1px; line-height:1.2;">Cari Hunian Terbaik di<br>Semarang Tanpa Ribet.</h1>
-        <p style="color: #A8DDBE; max-width: 600px; font-size: 0.95rem; line-height: 1.6;">
-            Konsultasikan kriteria kos impian Anda dengan AI Finder kami yang berbasis Finite State Automata. Dapatkan rekomendasi presisi dari lokasi, budget, hingga aturan kos secara real-time.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+class KosFindFSM:
+    def __init__(self):
+        self.state = State.GREETING
+        self.nlp = KosFindNLP()
+        
+        self.search_criteria = {
+            "lokasi": None,
+            "kedekatan": None,
+            "budget": None,
+            "jenis": None,
+            "budget_min": None,
+            "budget_max": None,
+            "fasilitas_query": None,
+            "fasilitas_list": None
+        }
+        
+        self.last_results: List[Dict] = []
+        self.selected_kos: Optional[Dict] = None
+        self.selected_kos_id: Optional[int] = None
+        self.selected_kos_nomor: Optional[int] = None
+        
+        self.response = ""
+        
+        self._greeting()
     
-    st.markdown("""
-    <div class="section-head">
-        <span class="sh-title" style="font-weight:700; color:var(--primary); font-size:1.1rem;">Keunggulan KosFind Chatbot</span>
-    </div>
-    <div class="section-sub" style="margin-bottom: 1.5rem;">Kemudahan pencarian data yang terintegrasi secara interaktif</div>
-    """, unsafe_allow_html=True)
-
-    features = [
-        ("Filter Lokasi", "Pencarian spesifik berbasis kecamatan & area kampus."),
-        ("Akurasi Budget", "Sesuaikan rentang harga tanpa over-budget."),
-        ("Direct Booking", "Hubungi langsung pemilik lewat WhatsApp sekali klik."),
-        ("Fasilitas Detil", "Cek ketersediaan AC, Kamar Mandi Dalam, Wifi dll."),
-        ("Kondisi Lapangan", "Informasi transparan mengenai bebas banjir & keamanan."),
-        ("Update Kamar", "Pantau sisa kuota kamar kosong secara live.")
-    ]
-
-    cols = st.columns(3)
-    for i, (title, desc) in enumerate(features):
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div class="feat-card" style="background:white; border:1px solid var(--border); padding:1.25rem; border-radius:12px; margin-bottom:1rem;">
-                <div style="color:var(--accent); font-family:'JetBrains Mono'; font-size:0.75rem; font-weight:700; margin-bottom:0.5rem;">0{i+1}</div>
-                <h4 style="margin:0 0 0.5rem 0; font-size:1rem; font-weight:700; color:var(--primary);">{title}</h4>
-                <p style="margin:0; font-size:0.8rem; color:var(--muted); line-height:1.5;">{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-# --- PAGE: CHATBOT (Interaktif & Pro) -------------------------------------------
-def page_chatbot():
-    state_string = get_state_string_safe()
-    fsm_display_state = state_string.replace("_", " ").title()
-
-    st.markdown(f"""
-    <div class="chat-wrapper">
-        <div class="chat-topbar">
-            <div>
-                <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin:0;">Asisten AI KosFind</h1>
-                <p style="font-size: 0.8rem; color: var(--muted); margin: 4px 0 0 0;">Cari kos impian & langsung terhubung ke pemilik via WA</p>
-            </div>
-            <div class="state-pill">Status FSM: {fsm_display_state}</div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Chat Windows
-    st.markdown('<div class="chat-window">', unsafe_allow_html=True)
-    for msg in st.session_state.chat_history:
-        if msg["role"] == "user":
-            st.markdown(f"""
-            <div class="msg-user">
-                <div class="msg-user-bubble">{msg["content"]}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        elif msg["role"] == "bot":
-            matched_kos = check_kos_context(msg["content"])
-            
-            st.markdown(f"""
-            <div class="msg-bot">
-                <div class="msg-bot-bubble">
-                    <div>{msg["content"]}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # FITUR DIRECT-CTA REDIRECT WA OTOMATIS SAAT USER MEMILIH/BERTANYA KOS
-            if matched_kos and matched_kos.get("whatsapp"):
-                wa_url = f"https://wa.me/{matched_kos['whatsapp']}?text=Halo,%20saya%20tertarik%20dengan%20{matched_kos['nama']}%20di%20KosFind."
-                st.markdown(f"""
-                <div style="display:flex; justify-content:flex-start; margin:-10px 0 20px 0; padding-left: 5px;">
-                    <a href="{wa_url}" target="_blank" class="wa-link-btn">
-                        📲 Hubungi Pemilik ({matched_kos['nama']}) via WA
-                    </a>
-                </div>
-                """, unsafe_allow_html=True)
-                
-        elif msg["role"] == "system":
-            st.markdown(f'<div class="session-sep" style="text-align:center; margin:15px 0; color:var(--muted); font-size:0.75rem;">--- {msg["content"]} ---</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Quick Picks Panel
-    if st.session_state.show_quick_buttons and state_string != "EXIT":
-        st.markdown('<div class="quick-panel">', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:0.7rem; font-family:\'JetBrains Mono\'; color:var(--muted); margin-bottom:10px; font-weight:600; letter-spacing:0.05em;">KLIK UNTUK MEMULAI OPSI CEPAT:</div>', unsafe_allow_html=True)
-
-        start_idx = st.session_state.quick_page * 3
-        display_cmds = QUICK_COMMANDS[start_idx:start_idx + 3]
-
-        cols = st.columns(3)
-        for i, cmd in enumerate(display_cmds):
-            with cols[i]:
-                if st.button(cmd, key=f"quick_{start_idx + i}", use_container_width=True):
-                    st.session_state.chat_history.append({"role": "user", "content": cmd})
-                    st.session_state.fsm.step(cmd)
-                    st.session_state.chat_history.append({"role": "bot", "content": st.session_state.fsm.get_response()})
-                    st.session_state.show_quick_buttons = False
-                    st.rerun()
-
-        # Toggle Page Pilihan Cepat
-        st.markdown('<div style="text-align:center; margin-top:10px;">', unsafe_allow_html=True)
-        if st.button("🔄 Lihat Pilihan Perintah Lain", key="ganti_btn_baru"):
-            st.session_state.quick_page = 1 - st.session_state.quick_page
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Sesi Baru Button
-    if state_string == "EXIT":
-        st.markdown('<div style="text-align:center; margin: 20px 0;">', unsafe_allow_html=True)
-        if st.button("🔄 Mulai Sesi Baru / Kosultasi Lagi", key="new_session_btn", use_container_width=True):
-            _start_new_session()
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Chat Input Area
-    user_input = st.chat_input("Ketik di sini (Contoh: cari kos putri di tembalang budget 1jt)...")
-    if user_input:
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-        st.session_state.fsm.step(user_input)
-        st.session_state.chat_history.append({"role": "bot", "content": st.session_state.fsm.get_response()})
-        if st.session_state.show_quick_buttons:
-            st.session_state.show_quick_buttons = False
-        st.rerun()
-
-    st.markdown('<div style="text-align:center; font-size:0.75rem; color:var(--muted); margin-top:10px; font-family:\'JetBrains Mono\'">Ketik <b>"reset"</b> kapan saja untuk menyegarkan sistem chatbot</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --- PAGE: REKOMENDASI KOS -------------------------------------------------------
-def page_rekomendasi():
-    st.markdown("""
-    <div style="padding-bottom:1rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border);">
-        <h1 style="font-size:1.5rem; font-weight:800; color:var(--primary); margin:0;">Eksplorasi Katalog Kos</h1>
-        <p style="font-size:0.8rem; color:var(--muted); margin:4px 0 0 0;">Gunakan filter dinamis untuk mempersempit pencarian hunian Anda</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    filter_col, list_col = st.columns([1, 2.2])
-
-    with filter_col:
-        st.markdown("<div style='background:white; border:1px solid var(--border); padding:1.25rem; border-radius:12px;'>", unsafe_allow_html=True)
-        st.markdown("<b style='color:var(--primary); font-size:0.95rem;'>Filter Pencarian</b>", unsafe_allow_html=True)
-        st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
-
-        lokasi_options = ["Semua Lokasi"] + sorted(set(k["kecamatan"] for k in KOS_DATA))
-        f_lokasi = st.selectbox("Kecamatan", lokasi_options)
-
-        jenis_options = ["Semua Jenis", "putri", "putra", "campur"]
-        f_jenis = st.selectbox("Jenis Penghuni", jenis_options)
-
-        f_budget_max = st.slider("Budget Maksimal / Bulan", 300_000, 2_000_000, 2_000_000, step=100_000, format="Rp %d")
-
-        f_tersedia = st.checkbox("Hanya Tampilkan Kamar Tersedia", value=False)
-        sort_by = st.selectbox("Urutan Berdasarkan", ["Rating Tertinggi", "Harga Terendah", "Harga Tertinggi", "Kamar Tersedia"])
-
-        st.markdown(f"<div style='margin-top:1.5rem; font-size:0.75rem; color:var(--muted); font-family:JetBrains Mono;'>Total Database: {len(KOS_DATA)} unit</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with list_col:
+    def _greeting(self):
+        self.response = "Halo! Saya KosFind, asisten cari kos di Semarang. Ada yang bisa saya bantu?"
+        self.state = State.MENU
+        self.nlp.set_state("MENU")
+    
+    def get_response(self) -> str:
+        return self.response
+    
+    def _reset_all(self):
+        self.state = State.GREETING
+        self.search_criteria = {
+            "lokasi": None,
+            "kedekatan": None,
+            "budget": None,
+            "jenis": None,
+            "budget_min": None,
+            "budget_max": None,
+            "fasilitas_query": None,
+            "fasilitas_list": None
+        }
+        self.last_results = []
+        self.selected_kos = None
+        self.selected_kos_id = None
+        self.selected_kos_nomor = None
+        self.nlp.set_state("GREETING")
+        self._greeting()
+    
+    def _reset_search(self):
+        self.search_criteria = {
+            "lokasi": None,
+            "kedekatan": None,
+            "budget": None,
+            "jenis": None,
+            "budget_min": None,
+            "budget_max": None,
+            "fasilitas_query": None,
+            "fasilitas_list": None
+        }
+    
+    def _fmt_harga(self, harga: int) -> str:
+        return f"Rp{harga:,.0f}".replace(",", ".")
+    
+    def _query_kos(self) -> List[Dict]:
         results = KOS_DATA[:]
-        if f_lokasi != "Semua Lokasi":
-            results = [k for k in results if k["kecamatan"] == f_lokasi]
-        if f_jenis != "Semua Jenis":
-            results = [k for k in results if k["jenis"] == f_jenis]
-        results = [k for k in results if k["harga"] <= f_budget_max]
-        if f_tersedia:
-            results = [k for k in results if k["kamar_kosong"] > 0]
-
-        # Sorting logic
-        if sort_by == "Rating Tertinggi": results.sort(key=lambda x: -x["rating"])
-        elif sort_by == "Harga Terendah": results.sort(key=lambda x: x["harga"])
-        elif sort_by == "Harga Tertinggi": results.sort(key=lambda x: -x["harga"])
-        elif sort_by == "Kamar Tersedia": results.sort(key=lambda x: -x["kamar_kosong"])
-
-        st.markdown(f"<div style='margin-bottom:1rem; font-size:0.85rem; color:var(--muted);'>Ditemukan <b>{len(results)}</b> kos yang cocok:</div>", unsafe_allow_html=True)
-
+        criteria = self.search_criteria
+        
+        if criteria["lokasi"]:
+            results = [k for k in results if 
+                      criteria["lokasi"].lower() in k["kecamatan"].lower() or
+                      criteria["lokasi"].lower() in k["wilayah"].lower()]
+        
+        if criteria["kedekatan"]:
+            results = [k for k in results if criteria["kedekatan"] in k.get("dekat", [])]
+        
+        if criteria.get("budget_min") is not None:
+            results = [k for k in results if k["harga"] >= criteria["budget_min"]]
+        if criteria.get("budget_max") is not None:
+            results = [k for k in results if k["harga"] <= criteria["budget_max"]]
+        elif criteria["budget"] is not None:
+            results = [k for k in results if k["harga"] <= criteria["budget"]]
+        
+        if criteria["jenis"]:
+            results = [k for k in results if k["jenis"] == criteria["jenis"]]
+        
+        if criteria.get("fasilitas_query") and criteria.get("fasilitas_list"):
+            results = [k for k in results if any(f.lower() in [fas.lower() for fas in k["fasilitas"]] for f in criteria["fasilitas_list"])]
+        
+        results.sort(key=lambda x: (-x["kamar_kosong"], -x["rating"]))
+        return results
+    
+    def _build_kos_list(self, results: List[Dict]) -> str:
         if not results:
-            st.info("Tidak ada kos yang memenuhi seluruh kriteria filter Anda. Sila sesuaikan kembali budget atau lokasi.")
+            return ""
+        
+        lines = [f"Saya temukan {len(results)} kos yang cocok:\n"]
+        for i, kos in enumerate(results, 1):
+            kamar_info = "Ada kamar" if kos['kamar_kosong'] > 0 else "Penuh"
+            lines.append(
+                f"{i}. {kos['nama']}\n"
+                f"   {kos['kecamatan']} | {self._fmt_harga(kos['harga'])}/bln | "
+                f"{kos['jenis'].capitalize()} | {kamar_info}\n"
+            )
+        
+        return "\n".join(lines)
+    
+    def _build_fasilitas(self, kos: Dict) -> str:
+        fasilitas_str = ", ".join(kos["fasilitas"])
+        return f"Fasilitas {kos['nama']}:\n{fasilitas_str}"
+    
+    def _build_kondisi_banjir(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Kondisi banjir {kos['nama']}:\n{kondisi.get('keterangan_banjir', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_keamanan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Keamanan {kos['nama']}:\n{kondisi.get('keamanan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_kebersihan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Kebersihan {kos['nama']}:\n{kondisi.get('kebersihan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_kebisingan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Tingkat kebisingan {kos['nama']}:\n{kondisi.get('kebisingan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_akses_jalan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Akses jalan {kos['nama']}:\n{kondisi.get('akses_jalan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_listrik(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Kondisi listrik {kos['nama']}:\n{kondisi.get('listrik', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_air(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Kondisi air {kos['nama']}:\n{kondisi.get('air', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_udara(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Sirkulasi udara {kos['nama']}:\n{kondisi.get('sirkulasi_udara', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_pencahayaan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Pencahayaan {kos['nama']}:\n{kondisi.get('pencahayaan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_lingkungan(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return f"Lingkungan {kos['nama']}:\n{kondisi.get('lingkungan', 'Informasi tidak tersedia')}"
+    
+    def _build_kondisi_semua(self, kos: Dict) -> str:
+        kondisi = kos.get("kondisi", {})
+        return (
+            f"Kondisi {kos['nama']}:\n\n"
+            f"Banjir: {kondisi.get('keterangan_banjir', '-')}\n"
+            f"Keamanan: {kondisi.get('keamanan', '-')}\n"
+            f"Kebersihan: {kondisi.get('kebersihan', '-')}\n"
+            f"Kebisingan: {kondisi.get('kebisingan', '-')}\n"
+            f"Akses Jalan: {kondisi.get('akses_jalan', '-')}\n"
+            f"Listrik: {kondisi.get('listrik', '-')}\n"
+            f"Air: {kondisi.get('air', '-')}\n"
+            f"Sirkulasi Udara: {kondisi.get('sirkulasi_udara', '-')}\n"
+            f"Pencahayaan: {kondisi.get('pencahayaan', '-')}\n"
+            f"Lingkungan: {kondisi.get('lingkungan', '-')}"
+        )
+    
+    def _build_ketersediaan(self, kos: Dict) -> str:
+        kamar = kos["kamar_kosong"]
+        if kamar > 0:
+            return f"{kos['nama']} masih ada {kamar} kamar kosong."
+        else:
+            return f"Maaf, {kos['nama']} sudah penuh."
+    
+    def _build_aturan(self, kos: Dict) -> str:
+        return f"Aturan {kos['nama']}:\n{kos['aturan']}"
+    
+    def _build_detail_lengkap(self, kos: Dict) -> str:
+        fasilitas_str = ", ".join(kos["fasilitas"])
+        kamar_info = f"{kos['kamar_kosong']} kamar kosong" if kos['kamar_kosong'] > 0 else "Penuh"
+        
+        return (
+            f"{kos['nama']}\n"
+            f"Lokasi: {kos['kecamatan']}\n"
+            f"Alamat: {kos['alamat']}\n"
+            f"Harga: {self._fmt_harga(kos['harga'])}/bulan\n"
+            f"Jenis: {kos['jenis'].capitalize()}\n\n"
+            f"Fasilitas: {fasilitas_str}\n\n"
+            f"Kondisi Banjir: {kos['kondisi']['keterangan_banjir']}\n"
+            f"Keamanan: {kos['kondisi']['keamanan']}\n"
+            f"Kebersihan: {kos['kondisi']['kebersihan']}\n\n"
+            f"Aturan: {kos['aturan']}\n\n"
+            f"Ketersediaan: {kamar_info}\n"
+            f"Rating: {kos['rating']}/5 ({kos['ulasan']} ulasan)"
+        )
+    
+    def _build_pemesanan(self, kos: Dict) -> str:
+        wa_url = f"https://wa.me/{kos['whatsapp']}?text=Halo,%20saya%20tertarik%20dengan%20{kos['nama'].replace(' ', '%20')}"
+        return (
+            f"Pemesanan {kos['nama']}\n\n"
+            f"Nama: {kos['nama']}\n"
+            f"Alamat: {kos['alamat']}\n\n"
+            f"Hubungi pemilik: {wa_url}\n\n"
+            "Tips: Siapkan KTP dan uang muka saat survey."
+        )
+    
+    def _extract_nomor_dari_teks(self, text: str) -> Optional[int]:
+        text_lower = text.lower()
+        
+        patterns = [
+            r'\b(kos|kost|kosan)\s+(\d+)\b',
+            r'\b(kos|kost|kosan)\s+(nomor|no\.?)\s*(\d+)\b',
+            r'\b(nomor|no\.?)\s*(\d+)\b',
+            r'\byang\s+(\d+)\b',
+            r'\bpilih\s+(\d+)\b',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text_lower)
+            if match:
+                for group in match.groups()[::-1]:
+                    if group and group.isdigit():
+                        return int(group)
+        
+        numbers = re.findall(r'\b(\d+)\b', text_lower)
+        for num in numbers:
+            num_int = int(num)
+            if 1 <= num_int <= 10:
+                return num_int
+        
+        return None
+    
+    def _split_multi_question(self, text: str) -> List[str]:
+        text_lower = text.lower()
+        separators = [r'\s+dan\s+', r'\s*&\s*', r'\s*,\s*', r'\s+serta\s+', r'\s+lalu\s+', r'\s+terus\s+']
+        
+        for sep in separators:
+            if re.search(sep, text_lower):
+                parts = re.split(sep, text_lower)
+                parts = [p.strip() for p in parts if p.strip()]
+                if len(parts) >= 2:
+                    return parts
+        
+        return [text_lower]
+    
+    def _detect_single_aksi(self, text: str) -> Tuple[Optional[str], Optional[int]]:
+        text_lower = text.lower()
+        nomor = self._extract_nomor_dari_teks(text)
+        
+        if re.search(r'kondisi\s+kos\s*nya\s+gimana', text_lower):
+            return ("kondisi_semua", nomor)
+        if re.search(r'kondisi\s+kos\s*nya\s+bagaimana', text_lower):
+            return ("kondisi_semua", nomor)
+        if re.search(r'kondisinya\s+gimana', text_lower):
+            return ("kondisi_semua", nomor)
+        if re.search(r'^kondisi$', text_lower):
+            return ("kondisi_semua", nomor)
+        
+        if re.search(r'banjir|rawan\s*banjir', text_lower):
+            return ("kondisi_banjir", nomor)
+        if re.search(r'keamanan|aman\s*(nggak|tidak)?|satpam|cctv', text_lower):
+            return ("kondisi_keamanan", nomor)
+        if re.search(r'kebersihan|bersih\s*(nggak|tidak)?', text_lower):
+            return ("kondisi_kebersihan", nomor)
+        if re.search(r'bising|ramai|tenang', text_lower):
+            return ("kondisi_kebisingan", nomor)
+        if re.search(r'akses\s*jalan|jalan\s*(bagus|mulus)?', text_lower):
+            return ("kondisi_akses_jalan", nomor)
+        if re.search(r'listrik|mati\s*listrik|padam', text_lower):
+            return ("kondisi_listrik", nomor)
+        if re.search(r'air\s*(bersih|keruh)?|pam|sumur', text_lower):
+            return ("kondisi_air", nomor)
+        if re.search(r'udara|sirkulasi|pengap', text_lower):
+            return ("kondisi_udara", nomor)
+        if re.search(r'lampu|pencahayaan|penerangan|terang', text_lower):
+            return ("kondisi_pencahayaan", nomor)
+        if re.search(r'lingkungan|tetangga|nyaman', text_lower):
+            return ("kondisi_lingkungan", nomor)
+        
+        if re.search(r'fasilitas|fasilitasnya|ada apa saja', text_lower):
+            return ("fasilitas", nomor)
+        
+        if re.search(r'aturan|peraturan|jam malam', text_lower):
+            return ("aturan", nomor)
+        
+        if re.search(r'(ada|masih ada|tersedia)\s*(kamar)?|kamar\s*kosong|lowongan', text_lower):
+            return ("ketersediaan", nomor)
+        
+        if re.search(r'detail|info\s*lengkap|lihat|tentang|jelaskan', text_lower):
+            return ("detail", nomor)
+        
+        pemesanan_patterns = [
+            r'cara\s*(pesan|booking|sewa)',
+            r'prosedur\s*sewa',
+            r'bagaimana\s*cara\s*(pesan|sewa)',
+            r'gimana\s*cara\s*(pesan|sewa)',
+            r'pesan\s*sekarang',
+            r'booking\s*kos',
+            r'pemesanan',
+            r'cara\s*pesan\s*ini',
+            r'cara\s*sewa\s*kos\s*ini',
+            r'mau\s*pesan\s*kos\s*ini',
+            r'^pesan\s*kos\s*ini$',
+            r'^sewa\s*kos\s*ini$',
+        ]
+        for pattern in pemesanan_patterns:
+            if re.search(pattern, text_lower):
+                return ("pemesanan", nomor)
+        
+        if re.search(r'kontak|wa|whatsapp|nomor\s*wa|hubungi', text_lower):
+            return ("kontak", nomor)
+        
+        if re.search(r'lokasi|maps|alamat|di\s*mana', text_lower):
+            return ("lokasi", nomor)
+        
+        return (None, nomor)
+    
+    def _get_kos_from_nomor(self, nomor: Optional[int]) -> Optional[Dict]:
+        if nomor and self.last_results and 1 <= nomor <= len(self.last_results):
+            kos = self.last_results[nomor - 1]
+            self.selected_kos = kos
+            self.selected_kos_id = kos["id"]
+            self.selected_kos_nomor = nomor
+            return kos
+        elif self.selected_kos:
+            return self.selected_kos
+        return None
+    
+    def _execute_aksi(self, aksi: str, kos: Dict) -> str:
+        if aksi == "fasilitas":
+            return self._build_fasilitas(kos)
+        elif aksi == "aturan":
+            return self._build_aturan(kos)
+        elif aksi == "ketersediaan":
+            return self._build_ketersediaan(kos)
+        elif aksi == "kondisi_banjir":
+            return self._build_kondisi_banjir(kos)
+        elif aksi == "kondisi_keamanan":
+            return self._build_kondisi_keamanan(kos)
+        elif aksi == "kondisi_kebersihan":
+            return self._build_kondisi_kebersihan(kos)
+        elif aksi == "kondisi_kebisingan":
+            return self._build_kondisi_kebisingan(kos)
+        elif aksi == "kondisi_akses_jalan":
+            return self._build_kondisi_akses_jalan(kos)
+        elif aksi == "kondisi_listrik":
+            return self._build_kondisi_listrik(kos)
+        elif aksi == "kondisi_air":
+            return self._build_kondisi_air(kos)
+        elif aksi == "kondisi_udara":
+            return self._build_kondisi_udara(kos)
+        elif aksi == "kondisi_pencahayaan":
+            return self._build_kondisi_pencahayaan(kos)
+        elif aksi == "kondisi_lingkungan":
+            return self._build_kondisi_lingkungan(kos)
+        elif aksi == "kondisi_semua":
+            return self._build_kondisi_semua(kos)
+        elif aksi == "detail":
+            return self._build_detail_lengkap(kos)
+        elif aksi == "pemesanan":
+            return self._build_pemesanan(kos)
+        elif aksi == "kontak":
+            wa_url = f"https://wa.me/{kos['whatsapp']}?text=Halo,%20saya%20tertarik%20dengan%20{kos['nama'].replace(' ', '%20')}"
+            return f"Hubungi pemilik {kos['nama']}: {wa_url}"
+        elif aksi == "lokasi":
+            maps_url = f"https://maps.google.com/?q={kos['latitude']},{kos['longitude']}"
+            return f"Alamat {kos['nama']}: {kos['alamat']}\n\nGoogle Maps: {maps_url}"
+        else:
+            return ""
+    
+    def _handle_multi_question(self, text: str) -> bool:
+        questions = self._split_multi_question(text)
+        if len(questions) <= 1:
+            return False
+        
+        nomor_global = self._extract_nomor_dari_teks(text)
+        kos = self._get_kos_from_nomor(nomor_global)
+        
+        if not kos:
+            return False
+        
+        responses = []
+        for q in questions:
+            aksi, nomor = self._detect_single_aksi(q)
+            if nomor and nomor != nomor_global:
+                kos_pertanyaan = self._get_kos_from_nomor(nomor)
+                if kos_pertanyaan:
+                    res = self._execute_aksi(aksi, kos_pertanyaan)
+                    if res:
+                        responses.append(res)
+                continue
+            res = self._execute_aksi(aksi, kos)
+            if res:
+                responses.append(res)
+        
+        if responses:
+            self.response = "\n\n---\n\n".join(responses)
+            self.state = State.DETAIL_KOS
+            self.nlp.set_state("DETAIL_KOS")
+            return True
+        
+        return False
+    
+    def _handle_single_question(self, text: str) -> bool:
+        aksi, nomor = self._detect_single_aksi(text)
+        if aksi is None:
+            return False
+        
+        kos = self._get_kos_from_nomor(nomor)
+        if not kos:
+            if self.last_results:
+                self.response = f"Kos nomor berapa yang mau ditanyakan? (1-{len(self.last_results)})"
+            else:
+                self.response = "Belum ada hasil pencarian. Silakan cari kos dulu."
+            return True
+        
+        response = self._execute_aksi(aksi, kos)
+        if response:
+            self.response = response
+            self.state = State.DETAIL_KOS
+            self.nlp.set_state("DETAIL_KOS")
+            return True
+        
+        return False
+    
+    def _handle_aksi(self, user_input: str) -> bool:
+        if not self.last_results:
+            return False
+        
+        if self._handle_multi_question(user_input):
+            return True
+        
+        if self._handle_single_question(user_input):
+            return True
+        
+        return False
+    
+    def _process_search_query(self, user_input: str, entities: Dict) -> bool:
+        lokasi = entities.get("lokasi")
+        kedekatan = entities.get("kedekatan")
+        jenis = entities.get("jenis_kos")
+        budget = entities.get("budget")
+        budget_min = entities.get("budget_min")
+        budget_max = entities.get("budget_max")
+        
+        has_criteria = lokasi or kedekatan or budget or budget_min or budget_max or jenis
+        
+        if has_criteria:
+            self.search_criteria["lokasi"] = lokasi
+            self.search_criteria["kedekatan"] = kedekatan
+            self.search_criteria["jenis"] = jenis
+            self.search_criteria["budget_min"] = budget_min
+            self.search_criteria["budget_max"] = budget_max
+            self.search_criteria["budget"] = budget if budget_max is None else None
+            self._show_search_results()
+            return True
+        
+        return False
+    
+    def _show_search_results(self):
+        self.last_results = self._query_kos()
+        
+        if not self.last_results:
+            criteria_parts = []
+            if self.search_criteria["lokasi"]:
+                criteria_parts.append(f"lokasi {self.search_criteria['lokasi']}")
+            elif self.search_criteria["kedekatan"]:
+                criteria_parts.append(f"dekat {self.search_criteria['kedekatan']}")
+            
+            if self.search_criteria.get("budget_min") is not None:
+                criteria_parts.append(f"budget minimal {self._fmt_harga(self.search_criteria['budget_min'])}")
+            if self.search_criteria.get("budget_max") is not None:
+                criteria_parts.append(f"budget maksimal {self._fmt_harga(self.search_criteria['budget_max'])}")
+            elif self.search_criteria["budget"] is not None:
+                criteria_parts.append(f"budget maksimal {self._fmt_harga(self.search_criteria['budget'])}")
+            
+            if self.search_criteria["jenis"]:
+                criteria_parts.append(f"jenis {self.search_criteria['jenis']}")
+            
+            self.response = f"Maaf, tidak ada kos yang cocok dengan kriteria tersebut. Coba dengan lokasi atau budget lain ya."
+            self.state = State.MENU
+            self.nlp.set_state("MENU")
             return
-
-        for kos in results:
-            badge_cls = f"badge-{kos['jenis']}"
-            status_txt = f"🟢 {kos['kamar_kosong']} Kamar Tersedia" if kos["kamar_kosong"] > 0 else "🔴 Kamar Penuh"
-            status_cls = "status-available" if kos["kamar_kosong"] > 0 else "status-full"
-            fas_tags = "".join(f'<span class="fas-tag">{f}</span>' for f in kos["fasilitas"][:3])
-            more = f'<span class="fas-tag">+{len(kos["fasilitas"]) - 3}</span>' if len(kos["fasilitas"]) > 3 else ""
-
-            st.markdown(f"""
-            <div class="kos-card">
-                <div class="kos-card-header">
-                    <div class="kos-card-name">{kos['nama']}</div>
-                    <span class="kos-badge {badge_cls}">{kos['jenis'].upper()}</span>
-                </div>
-                <div class="kos-meta">📍 Kecamatan {kos['kecamatan']} &nbsp;|&nbsp; ⭐ {kos['rating']}/5 ({kos['ulasan']} Ulasan)</div>
-                <div class="kos-price">{fmt_harga(kos['harga'])} <span style='font-size:0.75rem; font-weight:normal; color:var(--muted);'>/ bulan</span></div>
-                <div class="kos-fasilitas">{fas_tags}{more}</div>
-                <div class="{status_cls}" style="margin-top:5px; font-size:0.8rem; font-weight:600;">{status_txt}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            with st.expander("🔎 Lihat Detail Spesifikasi & Kontak"):
-                st.markdown(f"**Alamat Lengkap:** {kos['alamat']}")
-                st.markdown(f"**Aturan Kos:** {kos['aturan']}")
-                st.markdown(f"**Semua Fasilitas:** {', '.join(kos['fasilitas'])}")
+        
+        self.selected_kos = None
+        self.selected_kos_id = None
+        self.selected_kos_nomor = None
+        
+        self.response = self._build_kos_list(self.last_results)
+        self.state = State.HASIL_PENCARIAN
+        self.nlp.set_state("HASIL_PENCARIAN")
+    
+    def _extract_fasilitas_from_text(self, text: str) -> List[str]:
+        fasilitas_list = []
+        fasilitas_keywords = ["wifi", "ac", "kipas", "kamar mandi dalam", "kamar mandi luar", 
+                              "parkir motor", "parkir mobil", "dapur", "lemari", "kasur", 
+                              "meja", "laundry", "air panas", "tv", "kulkas", "dispenser"]
+        
+        for fas in fasilitas_keywords:
+            if fas in text.lower():
+                fasilitas_list.append(fas)
+        
+        return fasilitas_list
+    
+    def step(self, user_input: str):
+        if not user_input.strip():
+            return
+        
+        # QUICK BUTTON HANDLER - Pencarian berdasarkan kriteria spesifik
+        if "Saya ingin mencari kos berdasarkan" in user_input:
+            if "lokasi" in user_input:
+                self.state = State.INPUT_LOKASI
+                self.response = "Tentu! Mau cari kos di daerah mana? Contoh: Tembalang, Banyumanik, Pedurungan"
+                self.nlp.set_state("INPUT_LOKASI")
+                return
+            elif "budget" in user_input:
+                self.state = State.INPUT_BUDGET
+                self.response = "Baik. Budget per bulannya berapa? (Misal: 500rb, 1jt, atau tulis 'tidak ada batasan')"
+                self.nlp.set_state("INPUT_BUDGET")
+                return
+            elif "kategori" in user_input:
+                self.state = State.INPUT_JENIS
+                self.response = "Jenis kos yang dicari? (Putra, Putri, atau Campur)"
+                self.nlp.set_state("INPUT_JENIS")
+                return
+            elif "fasilitas" in user_input:
+                self.response = "Silakan sebutkan fasilitas yang diinginkan. Contoh: AC, wifi, kamar mandi dalam, parkir motor. Nanti saya akan cari kos dengan fasilitas tersebut."
+                self.state = State.INPUT_FASILITAS
+                self.nlp.set_state("INPUT_FASILITAS")
+                return
+            elif "kondisi" in user_input:
+                self.response = "Kondisi apa yang ingin Anda cari tahu? (Banjir, Keamanan, Kebersihan, Kebisingan, Akses Jalan, Listrik, Air, Udara, Pencahayaan, atau Lingkungan). Ketik 'semua kondisi' untuk melihat semuanya."
+                self.state = State.MENU
+                self.nlp.set_state("MENU")
+                return
+            elif "aturan" in user_input:
+                self.response = "Untuk melihat aturan kos, silakan cari kos dulu dengan menyebutkan lokasi dan budget. Setelah daftar kos muncul, ketik 'aturan kos 1' untuk melihat aturan kos pertama."
+                self.state = State.MENU
+                self.nlp.set_state("MENU")
+                return
+        
+        self.nlp.set_state(self.state.name)
+        nlp_result = self.nlp.process(user_input)
+        intent = nlp_result["intent"]
+        confidence = nlp_result["confidence"]
+        entities = nlp_result["entities"]
+        cleaned = nlp_result["cleaned"]
+        
+        # RESET - masuk ke state EXIT
+        if intent == "reset" and confidence > 0.5:
+            self.state = State.EXIT
+            self.response = "✅ Percakapan telah direset.\n\nTekan tombol **✨ Mulai Sesi Baru** di bawah untuk memulai percakapan baru."
+            return
+        
+        # KELUAR - masuk ke state EXIT
+        if intent == "keluar" and confidence > 0.5:
+            self.state = State.EXIT
+            self.response = "👋 Terima kasih sudah menggunakan KosFind!\n\nTekan tombol **✨ Mulai Sesi Baru** di bawah jika ingin memulai percakapan baru."
+            return
+        
+        # BANTUAN
+        if intent == "bantuan" and confidence > 0.5:
+            self.state = State.BANTUAN
+            self.response = (
+                "Panduan KosFind:\n\n"
+                "Cari kos:\n"
+                "- Cari kos putri di Tembalang budget 800rb\n"
+                "- Cari kos budget dibawah 1jt\n"
+                "- Rekomendasi kos dekat kampus\n\n"
+                "Setelah daftar kos muncul, tanyakan:\n"
+                "- fasilitas kos 1\n"
+                "- aturan kos 1\n"
+                "- ada kamar kosong?\n"
+                "- cek banjir kos 1\n"
+                "- detail kos 1\n"
+                "- kondisi kosnya gimana\n\n"
+                "Reset/Keluar: ketik 'reset' atau 'keluar'\n"
+                "Kembali ke menu: menu utama"
+            )
+            return
+        
+        # KEMBALI KE MENU
+        if intent == "kembali_menu" and confidence > 0.5:
+            self._reset_search()
+            self.last_results = []
+            self.selected_kos = None
+            self.selected_kos_id = None
+            self.selected_kos_nomor = None
+            self.state = State.MENU
+            self.response = "Baik, kembali ke menu utama. Ada yang bisa saya bantu?"
+            self.nlp.set_state("MENU")
+            return
+        
+        # KEMBALI KE HASIL
+        if intent == "kembali_hasil" and self.last_results and confidence > 0.5:
+            self.state = State.HASIL_PENCARIAN
+            self.response = self._build_kos_list(self.last_results)
+            self.nlp.set_state("HASIL_PENCARIAN")
+            return
+        
+        # SAPAAN
+        if self.state in [State.MENU, State.GREETING] and intent == "salam" and confidence > 0.5:
+            self.response = "Halo! Ada yang bisa saya bantu? Silakan sebutkan kriteria kos yang dicari."
+            self.state = State.MENU
+            self.nlp.set_state("MENU")
+            return
+        
+        # STATE: GREETING
+        if self.state == State.GREETING:
+            self.state = State.MENU
+            self.nlp.set_state("MENU")
+        
+        # STATE: MENU
+        if self.state == State.MENU:
+            if self._process_search_query(user_input, entities):
+                return
+            
+            if intent == "rekomendasi" and confidence > 0.5:
+                kedekatan = entities.get("kedekatan")
+                budget = entities.get("budget")
+                budget_min = entities.get("budget_min")
+                budget_max = entities.get("budget_max")
+                jenis = entities.get("jenis_kos")
                 
-                kondisi = kos.get("kondisi", {})
-                if kondisi:
-                    st.markdown("**Analisis Kondisi Lingkungan:**")
-                    st.markdown(f"- Keamanan Wilayah: {kondisi.get('keamanan', '-')}")
-                    st.markdown(f"- Tingkat Kebersihan: {kondisi.get('kebersihan', '-')}")
-                    st.markdown(f"- Risiko Banjir Semarang: {kondisi.get('keterangan_banjir', '-')}")
+                results = KOS_DATA[:]
+                if kedekatan:
+                    results = [k for k in results if kedekatan in k.get("dekat", [])]
+                if budget_max:
+                    results = [k for k in results if k["harga"] <= budget_max]
+                elif budget:
+                    results = [k for k in results if k["harga"] <= budget]
+                if budget_min:
+                    results = [k for k in results if k["harga"] >= budget_min]
+                if jenis:
+                    results = [k for k in results if k["jenis"] == jenis]
                 
-                if kos.get("whatsapp"):
-                    wa_direct_url = f"https://wa.me/{kos['whatsapp']}?text=Halo,%20saya%20mendapatkan%20info%20dari%20KosFind%20dan%20tertarik%20untuk%20booking%20{kos['nama']}."
-                    st.markdown(f"""
-                    <div style="margin-top: 15px;">
-                        <a href="{wa_direct_url}" target="_blank" class="wa-link-btn" style="width: 100%; box-sizing: border-box;">
-                            💬 Hubungi & Pesan via WhatsApp Sekarang
-                        </a>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-# --- Router --------------------------------------------------------------------
-page = st.session_state.page
-if page == "Beranda":
-    page_beranda()
-elif page == "Chatbot":
-    page_chatbot()
-elif page == "Rekomendasi Kos":
-    page_rekomendasi()
+                results.sort(key=lambda x: (-x["rating"], x["harga"]))
+                results = results[:5]
+                self.last_results = results
+                
+                if results:
+                    self.response = self._build_kos_list(results)
+                    self.state = State.HASIL_PENCARIAN
+                    self.nlp.set_state("HASIL_PENCARIAN")
+                else:
+                    self.response = "Maaf, tidak ada rekomendasi yang cocok dengan kriteria tersebut."
+                return
+            
+            if intent == "cari_kos" and confidence > 0.5:
+                self.state = State.INPUT_LOKASI
+                self.response = "Mau cari kos di daerah mana?"
+                self.nlp.set_state("INPUT_LOKASI")
+                return
+            
+            self.response = "Maaf, saya kurang paham. Silakan sebutkan kriteria kos yang dicari, atau ketik 'bantuan'."
+            return
+        
+        # STATE: INPUT_LOKASI
+        if self.state == State.INPUT_LOKASI:
+            lokasi = entities.get("lokasi")
+            kedekatan = entities.get("kedekatan")
+            
+            if lokasi or kedekatan:
+                self.search_criteria["lokasi"] = lokasi
+                self.search_criteria["kedekatan"] = kedekatan
+                self.state = State.INPUT_BUDGET
+                self.response = "Oke. Budget per bulannya berapa? (Misal: 500rb, 1jt, atau tulis 'tidak ada batasan')"
+                self.nlp.set_state("INPUT_BUDGET")
+                return
+            
+            self.response = "Maaf, lokasi tidak dikenal. Coba sebutkan kecamatan di Semarang ya. Contoh: Tembalang, Banyumanik"
+            return
+        
+        # STATE: INPUT_BUDGET
+        if self.state == State.INPUT_BUDGET:
+            budget_result = self.nlp._extract_budget(cleaned)
+            
+            if budget_result:
+                if budget_result.get("is_min"):
+                    self.search_criteria["budget_min"] = budget_result["value"]
+                    self.search_criteria["budget_max"] = None
+                elif budget_result.get("is_max"):
+                    self.search_criteria["budget_max"] = budget_result["value"]
+                    self.search_criteria["budget_min"] = None
+                else:
+                    self.search_criteria["budget"] = budget_result["value"]
+                    self.search_criteria["budget_min"] = None
+                    self.search_criteria["budget_max"] = None
+            elif "tidak ada" in cleaned or "bebas" in cleaned or "skip" in cleaned:
+                self.search_criteria["budget"] = None
+                self.search_criteria["budget_min"] = None
+                self.search_criteria["budget_max"] = None
+            
+            self.state = State.INPUT_JENIS
+            self.response = "Terima kasih. Jenis kos yang dicari? (Putra, Putri, atau Campur)"
+            self.nlp.set_state("INPUT_JENIS")
+            return
+        
+        # STATE: INPUT_JENIS
+        if self.state == State.INPUT_JENIS:
+            jenis = entities.get("jenis_kos")
+            if not jenis or "semua" in cleaned:
+                jenis = None
+            
+            self.search_criteria["jenis"] = jenis
+            self._show_search_results()
+            return
+        
+        # STATE: INPUT_FASILITAS
+        if self.state == State.INPUT_FASILITAS:
+            fasilitas_list = self._extract_fasilitas_from_text(cleaned)
+            if fasilitas_list:
+                self.search_criteria["fasilitas_query"] = True
+                self.search_criteria["fasilitas_list"] = fasilitas_list
+                self._show_search_results()
+            else:
+                self.response = "Maaf, saya tidak mengenali fasilitas yang Anda sebutkan. Contoh fasilitas: AC, wifi, kamar mandi dalam, parkir motor, dapur, lemari, kasur"
+                return
+            return
+        
+        # STATE: HASIL_PENCARIAN atau DETAIL_KOS
+        if self.state in [State.HASIL_PENCARIAN, State.DETAIL_KOS]:
+            if self._handle_aksi(user_input):
+                return
+        
+        # STATE: HASIL_PENCARIAN (fallback)
+        if self.state == State.HASIL_PENCARIAN:
+            if intent == "cari_kos" and confidence > 0.5:
+                self._reset_search()
+                self.state = State.INPUT_LOKASI
+                self.response = "Mau cari kos di daerah mana?"
+                self.nlp.set_state("INPUT_LOKASI")
+                return
+            
+            self.response = "Silakan pilih kos dengan menyebut nomornya. Misal: 'fasilitas kos 1'"
+            return
+        
+        # STATE: DETAIL_KOS (fallback)
+        if self.state == State.DETAIL_KOS:
+            if intent == "kembali_hasil" and self.last_results:
+                self.state = State.HASIL_PENCARIAN
+                self.response = self._build_kos_list(self.last_results)
+                self.nlp.set_state("HASIL_PENCARIAN")
+                return
+            
+            if intent == "cari_kos":
+                self._reset_search()
+                self.state = State.INPUT_LOKASI
+                self.response = "Mau cari kos di daerah mana?"
+                self.nlp.set_state("INPUT_LOKASI")
+                return
+            
+            self.response = "Ada yang bisa saya bantu dari kos ini? (fasilitas, aturan, ketersediaan, kondisi, dll)"
+            return
+        
+        # STATE: BANTUAN
+        if self.state == State.BANTUAN:
+            self.state = State.MENU
+            self.response = "Baik, kembali ke menu utama. Ada yang bisa saya bantu?"
+            self.nlp.set_state("MENU")
+            return
+        
+        # STATE: EXIT
+        if self.state == State.EXIT:
+            self.response = "Silakan tekan tombol **✨ Mulai Sesi Baru** di bawah untuk memulai percakapan baru."
+            return
+        
+        # FALLBACK
+        self.response = "Maaf, saya kurang paham. Silakan coba lagi atau ketik 'bantuan'."
